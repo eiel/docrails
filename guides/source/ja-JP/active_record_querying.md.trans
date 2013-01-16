@@ -35,19 +35,19 @@
 	  has_and_belongs_to_many :roles
 	end
 	```
-	
+
 	```ruby
 	class Address < ActiveRecord::Base
 	  belongs_to :client
 	end
 	```
-	
+
 	```ruby
 	class Order < ActiveRecord::Base
-	  belongs_to :client, :counter_cache => true
+	  belongs_to :client, counter_cache: true
 	end
 	```
-	
+
 	```ruby
 	class Role < ActiveRecord::Base
 	  has_and_belongs_to_many :clients
@@ -66,17 +66,29 @@
 
 .EN	The methods are:
 .JA	そのためのメソッドがこちらです:
-	* `where`
-	* `select`
-	* `group`
-	* `order`
-	* `limit`
-	* `offset`
-	* `joins`
-	* `includes`
-	* `lock`
-	* `readonly`
+
+	* `bind`
+	* `create_with`
+	* `eager_load`
+	* `extending`
 	* `from`
+	* `group`
+	* `having`
+	* `includes`
+	* `joins`
+	* `limit`
+	* `lock`
+	* `none`
+	* `offset`
+	* `order`
+	* `preload`
+	* `readonly`
+	* `references`
+	* `reorder`
+	* `reverse_order`
+	* `select`
+	* `uniq`
+	* `where`
 
 .EN	All of these methods return a Relation
 .JA	これらメソッドはどれも Relation 〔訳注: クラスのオブジェクト〕を返します。
@@ -87,7 +99,7 @@
 .EN	* Convert the supplied options to an equivalent SQL query.
 .EN	* Fire the SQL query and retrieve the corresponding results from the database.
 .EN	* Instantiate the equivalent Ruby object of the appropriate model for every resulting row.
-.EN	* Run `after_find` callbacks if any.
+.EN	* Run `after_find` callbacks, if any.
 .JA	* 与えられたオプションを同等の SQL クエリに変換すること。
 .JA	* SQL クエリを実行し、対応する結果をデータベースから抽出すること。
 .JA	* 各行に応じたモデルの Ruby オブジェクトを作成すること。
@@ -109,18 +121,37 @@
 .EN	# Find the client with primary key (id) 10.
 .JA	# 主キー (id) が 10 である顧客を検索する
 	client = Client.find(10)
-	=> #<Client id: 10, name: => "Ryan">
+	# => #<Client id: 10, first_name: "Ryan">
 	```
 
 .EN	SQL equivalent of the above is:
 .JA	これと同等の SQl は次の通りです:
 
 	```sql
-	SELECT * FROM clients WHERE (clients.id = 10)
+	SELECT * FROM clients WHERE (clients.id = 10) LIMIT 1
 	```
 
 .EN	`Model.find(primary_key)` will raise an `ActiveRecord::RecordNotFound` exception if no matching record is found.
 .JA	`Model.find(primary_key)` は、もし該当するレコードが見つからなければ、`ActiveRecord::RecordNotFound` 例外を発生させます。
+
+.EN	#### `take`
+
+.EN	`Model.take` retrieves a record without any implicit ordering. For example:
+
+	```ruby
+	client = Client.take
+	# => #<Client id: 1, first_name: "Lifo">
+	```
+
+.EN	The SQL equivalent of the above is:
+
+	```sql
+	SELECT * FROM clients LIMIT 1
+	```
+
+.EN	`Model.take` returns `nil` if no record is found and no exception will be raised.
+
+.EN	TIP: The retrieved record may vary depending on the database engine.
 
 .EN	#### `first`
 .JA	#### `first`
@@ -130,14 +161,14 @@
 
 	```ruby
 	client = Client.first
-	=> #<Client id: 1, name: => "Lifo">
+	# => #<Client id: 1, first_name: "Lifo">
 	```
 
 .EN	SQL equivalent of the above is:
 .JA	これに対応する SQL は:
 
 	```sql
-	SELECT * FROM clients LIMIT 1
+	SELECT * FROM clients ORDER BY clients.id ASC LIMIT 1
 	```
 
 .EN	`Model.first` returns `nil` if no matching record is found. No exception will be raised.
@@ -151,7 +182,7 @@
 
 	```ruby
 	client = Client.last
-	=> #<Client id: 221, name: => "Russel">
+	# => #<Client id: 221, first_name: "Russel">
 	```
 
 .EN	SQL equivalent of the above is:
@@ -163,6 +194,93 @@
 
 .EN	`Model.last` returns `nil` if no matching record is found. No exception will be raised.
 .JA	`Model.last` は、もし一致するレコードがなければ `nil` を返します。例外は発生しません。
+
+.EN	#### `find_by`
+
+.EN	`Model.find_by` finds the first record matching some conditions. For example:
+
+	```ruby
+	Client.find_by first_name: 'Lifo'
+	# => #<Client id: 1, first_name: "Lifo">
+
+	Client.find_by first_name: 'Jon'
+	# => nil
+	```
+
+.EN	It is equivalent to writing:
+
+	```ruby
+	Client.where(first_name: 'Lifo').take
+	```
+
+.EN	#### `take!`
+
+.EN	`Model.take!` retrieves a record without any implicit ordering. For example:
+
+	```ruby
+	client = Client.take!
+	# => #<Client id: 1, first_name: "Lifo">
+	```
+
+.EN	The SQL equivalent of the above is:
+
+	```sql
+	SELECT * FROM clients LIMIT 1
+	```
+
+.EN	`Model.take!` raises `ActiveRecord::RecordNotFound` if no matching record is found.
+
+.EN	#### `first!`
+
+.EN	`Model.first!` finds the first record ordered by the primary key. For example:
+
+	```ruby
+	client = Client.first!
+	# => #<Client id: 1, first_name: "Lifo">
+	```
+
+.EN	The SQL equivalent of the above is:
+
+	```sql
+	SELECT * FROM clients ORDER BY clients.id ASC LIMIT 1
+	```
+
+.EN	`Model.first!` raises `ActiveRecord::RecordNotFound` if no matching record is found.
+
+.EN	#### `last!`
+
+.EN	`Model.last!` finds the last record ordered by the primary key. For example:
+
+	```ruby
+	client = Client.last!
+	# => #<Client id: 221, first_name: "Russel">
+	```
+
+.EN	The SQL equivalent of the above is:
+
+	```sql
+	SELECT * FROM clients ORDER BY clients.id DESC LIMIT 1
+	```
+
+.EN	`Model.last!` raises `ActiveRecord::RecordNotFound` if no matching record is found.
+
+.EN	#### `find_by!`
+
+.EN	Model.find_by!` finds the first record matching some conditions. It raises `ActiveRecord::RecordNotFound` if no matching record is found. For example:
+
+	```ruby
+	Client.find_by! first_name: 'Lifo'
+	# => #<Client id: 1, first_name: "Lifo">
+	
+	Client.find_by! first_name: 'Jon'
+	# => ActiveRecord::RecordNotFound
+	```
+
+.EN	It is equivalent to writing:
+
+	```ruby
+	Client.where(first_name: 'Lifo').take!
+	```
 
 .EN	### Retrieving Multiple Objects
 .JA	### 複数のオブジェクトを取り出す
@@ -176,8 +294,8 @@
 	```ruby
 .EN	# Find the clients with primary keys 1 and 10.
 .JA	# 主キーが 1 と 10 の顧客を検索する
-	client = Client.find(1, 10) # Or even Client.find([1, 10])
-	=> [#<Client id: 1, name: => "Lifo">, #<Client id: 10, name: => "Ryan">]
+	client = Client.find([1, 10]) # Or even Client.find(1, 10)
+	# => [#<Client id: 1, first_name: "Lifo">, #<Client id: 10, first_name: "Ryan">]
 	```
 
 .EN	SQL equivalent of the above is:
@@ -202,7 +320,7 @@
 	```ruby
 .EN	# Very inefficient when users table has thousands of rows.
 .JA	# users テーブルが数千行ある場合はとても効率が悪い
-	User.each do |user|
+	User.all.each do |user|
 	  NewsLetter.weekly_deliver(user)
 	end
 	```
@@ -235,7 +353,7 @@
 .JA	バッチサイズ `5000` で `User` のレコードを取ってくるには:
 
 	```ruby
-	User.find_each(:batch_size => 5000) do |user|
+	User.find_each(batch_size: 5000) do |user|
 	  NewsLetter.weekly_deliver(user)
 	end
 	```
@@ -250,7 +368,7 @@
 .JA	主キーが `2000` 以降のユーザにだけニュースレターを送信する場合は:
 
 	```ruby
-	User.find_each(:batch_size => 5000, :start => 2000) do |user|
+	User.find_each(start: 2000, batch_size: 5000) do |user|
 	  NewsLetter.weekly_deliver(user)
 	end
 	```
@@ -270,7 +388,7 @@
 	```ruby
 .EN	# Works in chunks of 1000 invoices at a time.
 .JA	# 1 回につき 1000 件のインボイスを含むチャンクを処理する
-	Invoice.find_in_batches(:include => :invoice_lines) do |invoices|
+	Invoice.find_in_batches(include: :invoice_lines) do |invoices|
 	  export.add_invoices(invoices)
 	end
 	```
@@ -301,9 +419,9 @@
 .EN	Now what if that number could vary, say as an argument from somewhere, or perhaps from the user's level status somewhere? The find then becomes something like:
 .JA	たとえば何かの引数をもとにしたり、ユーザレベルのステータスとかなにかをもとにするといった、数値が変化するような場合はどうするのでしょう?
 
-.EN	```ruby
-.EN	Client.where(["orders_count = ?", params[:orders]])
-.EN	```
+	```ruby
+	Client.where("orders_count = ?", params[:orders])
+	```
 
 .EN	Active Record will go through the first element in the conditions value and any additional elements will replace the question marks `(?)` in the first element.
 .JA	Active Record は条件値の最初の要素を取り出し、その中のクエスチョンマーク `(?)` を残りの要素で置き換えます。
@@ -312,7 +430,7 @@
 .JA	あるいは、もし 2 つの条件を指定したい場合は次のようにします:
 
 	```ruby
-	Client.where(["orders_count = ? AND locked = ?", params[:orders], false])
+	Client.where("orders_count = ? AND locked = ?", params[:orders], false)
 	```
 
 .EN	In this example, the first question mark will be replaced with the value in `params[:orders]` and the second will be replaced with the SQL representation of `false`, which depends on the adapter.
@@ -322,7 +440,7 @@
 .JA	〔訳注: 「?」を使った〕次のような書き方は:
 
 .EN	```ruby
-.EN	Client.where(["orders_count = ?", params[:orders]])
+.EN	Client.where("orders_count = ?", params[:orders])
 .EN	```
 
 .EN	instead of:
@@ -345,83 +463,12 @@
 .JA	「 `?` 」を使った置換と似たような方法として、配列の条件式にハッシュのキーと値で指定することもできます:
 
 	```ruby
-	Client.where(
-	  ["created_at >= :start_date AND created_at <= :end_date", { :start_date => params[:start_date], :end_date => params[:end_date] }])
+	Client.where("created_at >= :start_date AND created_at <= :end_date",
+	  {start_date: params[:start_date], end_date: params[:end_date]})
 	```
 
 .EN	This makes for clearer readability if you have a large number of variable conditions.
 .JA	この方法は、条件式の可変部が多い場合は可読性がより高くなります。
-
-.EN	h5(#array-range_conditions). Range Conditions
-.JA	h5(#array-range_conditions). 範囲を指定した検索条件
-
-.EN	If you're looking for a range inside of a table (for example, users created in a certain timeframe) you can use the conditions option coupled with the `IN` SQL statement for this. If you had two dates coming in from a controller you could do something like this to look for a range:
-.JA	もしテーブル内の範囲 (たとえばある期間内に作成されたユーザなど) を検索しようとしているなら、SQL 文における IN に相当する条件オプションが利用可能です。もし 2 つの日付がコントローラからもたらされるなら、範囲を使った検索は次のようになります:
-
-	```ruby
-	Client.where(["created_at IN (?)",
-	  (params[:start_date].to_date)..(params[:end_date].to_date)])
-	```
-
-.EN	This would generate the proper query which is great for small ranges but not so good for larger ranges. For example if you pass in a range of date objects spanning a year that's 365 (or possibly 366, depending on the year) strings it will attempt to match your field against.
-.JA	こうすると、Range オブジェクトの下限以上かつ上限以下であるような、適切なクエリが生成されます。たとえば 1 年間 365 日 (または年によっては 366 日) を表すような date オブジェクトの Range オブジェクトを渡すと、次のような SQL が生成されます。
-
-	```sql
-	SELECT * FROM users WHERE (created_at IN
-	  ('2007-12-31','2008-01-01','2008-01-02','2008-01-03','2008-01-04','2008-01-05',
-	  '2008-01-06','2008-01-07','2008-01-08','2008-01-09','2008-01-10','2008-01-11',
-	  '2008-01-12','2008-01-13','2008-01-14','2008-01-15','2008-01-16','2008-01-17',
-	  '2008-01-18','2008-01-19','2008-01-20','2008-01-21','2008-01-22','2008-01-23',...
-	  ‘2008-12-15','2008-12-16','2008-12-17','2008-12-18','2008-12-19','2008-12-20',
-	  '2008-12-21','2008-12-22','2008-12-23','2008-12-24','2008-12-25','2008-12-26',
-	  '2008-12-27','2008-12-28','2008-12-29','2008-12-30','2008-12-31'))
-	```
-
-.EN	h5. Time and Date Conditions
-.JA	h5. 時刻 (Time) と日付 (Date) の検索条件
-
-.EN	Things can get *really* messy if you pass in Time objects as it will attempt to compare your field to *every second* in that range:
-.JA	もし Time オブジェクトを渡したら、 *本当に* 大変なことになります。なぜなら、比較対象となるフィールドと、範囲内の *すべての秒数* とを比較しようとするからです:
-
-	```ruby
-	Client.where(["created_at IN (?)",
-	  (params[:start_date].to_date.to_time)..(params[:end_date].to_date.to_time)])
-	```
-
-	```sql
-	SELECT * FROM users WHERE (created_at IN
-	  ('2007-12-01 00:00:00', '2007-12-01 00:00:01' ...
-	  '2007-12-01 23:59:59', '2007-12-02 00:00:00'))
-	```
-
-.EN	This could possibly cause your database server to raise an unexpected error, for example MySQL will throw back this error:
-.JA	これは、データベースサーバに予期せぬエラーを発生させる可能性があります。たとえば MySQL だと次のようなエラーが返されます:
-
-.EN	<shell>
-.EN	Got a packet bigger than 'max_allowed_packet' bytes: _query_
-.EN	</shell>
-
-.EN	Where _query_ is the actual query used to get that error.
-.JA	ここで _query_ はエラーを引き起こした実際のクエリです。
-
-.EN	In this example it would be better to use greater-than and less-than operators in SQL, like so:
-.JA	この例では SQL の演算子である「>」や「<」を使うほうがいいでしょう。たとえば:
-
-	```ruby
-	Client.where(
-	  ["created_at > ? AND created_at < ?", params[:start_date], params[:end_date]])
-	```
-
-.EN	You can also use the greater-than-or-equal-to and less-than-or-equal-to like this:
-.JA	もちろん Ruby と同じように、「>=」や「<=」も利用できます:
-
-.EN	```ruby
-.EN	Client.where(
-.EN	  ["created_at >= ? AND created_at <= ?", params[:start_date], params[:end_date]])
-.EN	```
-
-.EN	Just like in Ruby. If you want a shorter syntax be sure to check out the "Hash Conditions":#hash-conditions section later on in the guide.
-.JA	もしより短いシンタックスを望むなら、次のセクション「ハッシュを使った検索条件」を読むことを強くお勧めします。
 
 .EN	### Hash Conditions
 .JA	### ハッシュを使った検索条件
@@ -432,11 +479,11 @@
 .EN	NOTE: Only equality, range and subset checking are possible with Hash conditions.
 .JA	NOTE: 同様に、範囲式やサブセットチェック (subset checking)〔訳注: ???〕も Hash による検索条件で利用可能です。
 
-.EN	h5. Equality Conditions
-.JA	h5. 等号による検索条件
+.EN	#### Equality Conditions
+.JA	#### 等号による検索条件
 
 	```ruby
-	Client.where({ :locked => true })
+	Client.where({ locked: true })
 	```
 
 .EN	The field name does not have to be a symbol it can also be a string:
@@ -446,14 +493,11 @@
 	Client.where({ 'locked' => true })
 	```
 
-.EN	h5(#hash-range_conditions). Range Conditions
-.JA	h5(#hash-range_conditions). Range を使った検索条件
-
 .EN	The good thing about this is that we can pass in a range for our fields without it generating a large query as shown in the preamble of this section.
 .JA	Hash による検索条件のよいところは、フィールドの Range オブジェクトを渡した場合に、前のセクションで見たような巨大なクエリを生成しないという点です。
 
 	```ruby
-	Client.where({ :created_at => (Time.now.midnight - 1.day)..Time.now.midnight})
+	Client.where(created_at: (Time.now.midnight - 1.day)..Time.now.midnight)
 	```
 
 .EN	This will find all clients created yesterday by using a `BETWEEN` SQL statement:
@@ -473,7 +517,7 @@
 .JA	もし `IN` 演算子を使ってレコードを検索したいなら、ハッシュの値に配列を渡せばよいです:
 
 	```ruby
-	Client.where({ :orders_count => [1,3,5] })
+	Client.where(orders_count: [1,3,5])
 	```
 
 .EN	This code will generate SQL like this:
@@ -486,7 +530,7 @@
 .EN	Ordering
 .EN	--------
 .JA	順序
-.EN	----
+.JA	----
 
 .EN	To retrieve records from the database in a specific order, you can specify the `:order` option to the `find` call.
 .JA	データベースからある特定の順番でレコードを抽出するには、`:order` オプションつきで `find` メソッドを呼び出します。
@@ -526,11 +570,6 @@
 .EN	To select only a subset of fields from the result set, you can specify the subset via the `select` method.
 .JA	結果セットから一部のフィールドだけを取り出すには、select メソッドでフィールド名を指定する必要があります。
 
-.EN	NOTE: If the `select` method is used, all the returning objects will be "read only":#readonly-objects.
-.JA	NOTE: select メソッドが使われると、返されるオブジェクトはすべて "読み取り専用":#readonly-objects 〔訳注: 変更ができない〕になります。
-
-	<br />
-
 .EN	For example, to select only `viewable_by` and `locked` columns:
 .JA	たとえば、 `viewable_by` カラムと `locked` カラムのみを選択するには:
 
@@ -548,18 +587,22 @@
 .EN	Be careful because this also means you're initializing a model object with only the fields that you've selected. If you attempt to access a field that is not in the initialized record you'll receive:
 .JA	モデルオブジェクトのうち、指定されたフィールドのみが初期化されることに注意してください。もし初期化されてないフィールドにアクセスすると、次のようなエラーになります:
 
-.EN	<shell>
-.EN	ActiveRecord::MissingAttributeError: missing attribute: <attribute>
-.EN	</shell>
+	```bash
+	ActiveModel::MissingAttributeError: missing attribute: <attribute>
+    ````
 
-.EN	Where `&lt;attribute&gt;` is the attribute you asked for. The `id` method will not raise the `ActiveRecord::MissingAttributeError`, so just be careful when working with associations because they need the `id` method to function properly.
-.JA	ここで `&lt;attribute&gt;` はアクセスしようとしている属性です。`id` メソッドは `ActiveRecord::MissingAttributeError` を発生させませんが、アソシエーションは id メソッドが正しく機能することが必要なので、 `id` メソッドを使う場合は注意してください。
+.EN	Where `<attribute>` is the attribute you asked for. The `id` method will not raise the `ActiveRecord::MissingAttributeError`, so just be careful when working with associations because they need the `id` method to function properly.
+.JA	ここで `<attribute>` はアクセスしようとしている属性です。`id` メソッドは `ActiveRecord::MissingAttributeError` を発生させませんが、アソシエーションは id メソッドが正しく機能することが必要なので、 `id` メソッドを使う場合は注意してください。
 
 .EN	You can also call SQL functions within the select option. For example, if you would like to only grab a single record per unique value in a certain field by using the `DISTINCT` function you can do it like this:
 .JA	また select オプション内で SQL 関数を指定することができます。たとえば、 `DISTINCT` 関数を使うことであるフィールドにおける一意な値ごとに 1 つのレコードのみを取り出したいなら、次のようにします:
 
 	```ruby
-	Client.select("DISTINCT(name)")
+	query = Client.select(:name).uniq
+	# => Returns unique names
+
+	query.uniq(false)
+	# => Returns all names, even if there are duplicates
 	```
 
 .EN	Limit and Offset
@@ -588,14 +631,14 @@
 .JA	あるいは `limit` と `offset` の両方を指定するには:
 
 	```ruby
-	Client.limit(5).offset(5)
+	Client.limit(5).offset(30)
 	```
 
 .EN	This code will return a maximum of 5 clients and because it specifies an offset this time, it will return these records starting from the 5th client in the clients table. The SQL looks like:
 .JA	このコードは最大で 5 個の Client オブジェクトを返しますが、今回は offset が指定されているので、clients テーブルにおいて 5 番目のレコードから開始します。SQL は次の通りです:
 
 	```sql
-	SELECT * FROM clients LIMIT 5, 5
+	SELECT * FROM clients LIMIT 5 OFFSET 30
 	```
 
 .EN	Group
@@ -610,7 +653,7 @@
 .JA	たとえば、すべての日付を取り出し、かつ日付順でソートしたい場合:
 
 	```ruby
-	Order.group("date(created_at)").order("created_at")
+	Order.select("date(created_at) as ordered_date, sum(price) as total_price").group("date(created_at)")
 	```
 
 .EN	And this will give you a single `Order` object for each date where there are orders in the database.
@@ -620,7 +663,9 @@
 .JA	実行される SQL は次のようなものになります:
 
 	```sql
-	SELECT * FROM orders GROUP BY date(created_at)
+	SELECT date(created_at) as ordered_date, sum(price) as total_price
+	FROM orders
+	GROUP BY date(created_at)
 	```
 
 .EN	Having
@@ -635,14 +680,18 @@
 .JA	たとえば:
 
 	```ruby
-	Order.group("date(created_at)".having(["created_at > ?", 1.month.ago])
+	Order.select("date(created_at) as ordered_date, sum(price) as total_price").
+	  group("date(created_at)").having("sum(price) > ?", 100)
 	```
 
 .EN	The SQL that would be executed would be something like this:
 .JA	実行される SQL は次のようなものになります:
 
 	```sql
-	SELECT * FROM orders GROUP BY date(created_at) HAVING created_at > '2009-01-15'
+	SELECT date(created_at) as ordered_date, sum(price) as total_price
+	FROM orders
+	GROUP BY date(created_at)
+	HAVING sum(price) > 100
 	```
 
 .EN	This will return single order objects for each day, but only for the last month.
@@ -701,21 +750,16 @@
 	c1 = Client.find(1)
 	c2 = Client.find(1)
 
-	c1.name = "Michael"
+	c1.first_name = "Michael"
 	c1.save
 
 	c2.name = "should fail"
-.EN	c2.save # Raises a ActiveRecord::StaleObjectError
+.EN	c2.save # Raises an ActiveRecord::StaleObjectError
 .JA	c2.save # ActiveRecord::StaleObjectError 例外が発生する
 	```
 
 .EN	You're then responsible for dealing with the conflict by rescuing the exception and either rolling back, merging, or otherwise apply the business logic needed to resolve the conflict.
 .JA	更新が衝突したときに、例外を rescue して、ロールバックしたり更新をマージしたりあるいは衝突を解消する何らかのビジネスロジックを実行するのは、開発者の仕事となります。
-
-.EN	NOTE: You must ensure that your database schema defaults the `lock_version` column to `0`.
-.JA	NOTE: データベーススキーマで、 `lock_version` カラムのデフォルトが `0` になっていることを確認してください。
-
-	<br />
 
 .EN	This behavior can be turned off by setting `ActiveRecord::Base.lock_optimistically = false`.
 .JA	この挙動は `ActiveRecord::Base.lock_optimistically = false` によってオフにすることができます。
@@ -725,22 +769,22 @@
 
 	```ruby
 	class Client < ActiveRecord::Base
-	  set_locking_column :lock_client_column
+	  self.locking_column = :lock_client_column
 	end
 	```
 
 .EN	### Pessimistic Locking
 .JA	### 悲観的ロック
 
-.EN	Pessimistic locking uses locking mechanism provided by the underlying database. Passing `:lock => true` to `Model.find` obtains an exclusive lock on the selected rows. `Model.find` using `:lock` are usually wrapped inside a transaction for preventing deadlock conditions.
-.JA	悲観的ロックは、データベースが持っている機能を使ったロックメカニズムです。 `Model.find` を `:lock => true` に渡すことで、選択された行に排他的ロックをかけることができます。 `:lock` つきの `Model.find` は通常、デッドロック条件を防ぐためにトランザクション内で使用されます。
+.EN	Pessimistic locking uses locking mechanism provided by the underlying database. Passing `lock: true` to `Model.find` obtains an exclusive lock on the selected rows. `Model.find` using `:lock` are usually wrapped inside a transaction for preventing deadlock conditions.
+.JA	悲観的ロックは、データベースが持っている機能を使ったロックメカニズムです。 `Model.find` を `lock: true` に渡すことで、選択された行に排他的ロックをかけることができます。 `:lock` つきの `Model.find` は通常、デッドロック条件を防ぐためにトランザクション内で使用されます。
 
 .EN	For example:
 .JA	たとえば:
 
 	```ruby
 	Item.transaction do
-	  i = Item.first(:lock => true)
+	  ji = Item.lock.first
 	  i.name = 'Jones'
 	  i.save
 	end
@@ -761,7 +805,7 @@
 
 	```ruby
 	Item.transaction do
-	  i = Item.find(1, :lock => "LOCK IN SHARE MODE")
+      i = Item.lock("LOCK IN SHARE MODE").find(1)
 	  i.increment!(:views)
 	end
 	```
@@ -781,7 +825,7 @@
 .JA	`:joins` オプションに、`JOIN` 句を表す生の SQL を指定できます。たとえば:
 
 	```ruby
-	Client.all(:joins => 'LEFT OUTER JOIN addresses ON addresses.client_id = clients.id')
+	Client.joins('LEFT OUTER JOIN addresses ON addresses.client_id = clients.id')
 	```
 
 .EN	This will result in the following SQL:
@@ -814,13 +858,17 @@
 	  has_many :tags
 	end
 
-	class Comments < ActiveRecord::Base
+	class Comment < ActiveRecord::Base
 	  belongs_to :post
 	  has_one :guest
 	end
 
 	class Guest < ActiveRecord::Base
 	  belongs_to :comment
+	end
+
+	class Tag < ActiveRecord::Base
+	  belongs_to :post
 	end
 	```
 
@@ -853,7 +901,7 @@
 .JA	この結果は次の通りです:
 
 	```sql
-	SELECT posts.* FROM posts 
+	SELECT posts.* FROM posts
 	  INNER JOIN categories ON posts.category_id = categories.id
 	  INNER JOIN comments ON comments.post_id = posts.id
 	```
@@ -862,14 +910,14 @@
 .JA	#### 入れ子 (1 段) になったアソシエーションによるジョイン
 
 	```ruby
-	Post.joins(:comments => :guest)
+	Post.joins(comments: :guest)
 	```
 
 .EN	#### Joining Nested Associations (Multiple Level)
 .JA	#### 入れ子 (多段) になったアソシエーションによるジョイン
 
 	```ruby
-	Category.joins(:posts => [{:comments => :guest}, :tags])
+	Category.joins(posts: [{comments: :guest}, :tags])
 	```
 
 .EN	### Specifying Conditions on the Joined Tables
@@ -888,7 +936,7 @@
 
 	```ruby
 	time_range = (Time.now.midnight - 1.day)..Time.now.midnight
-	Client.joins(:orders).where(:orders => {:created_at => time_range})
+	Client.joins(:orders).where(orders: {created_at: time_range})
 	```
 
 .EN	This will find all clients who have orders that were created yesterday, again using a `BETWEEN` SQL expression.
@@ -902,14 +950,14 @@
 .EN	Eager loading is the mechanism for loading the associated records of the objects returned by `Model.find` using as few queries as possible.
 .JA	Eager ローディングは、 `Model.find` によって返されるオブジェクトに関連した (associated) レコードを、できるだけ少ないクエリを使って読み込むメカニズムです。
 
-.EN	**N <plus> 1 queries problem**
-.JA	**N <plus> 1 クエリ問題**
+.EN	**N + 1 queries problem**
+.JA	**N + 1 クエリ問題**
 
 .EN	Consider the following code, which finds 10 clients and prints their postcodes:
 .JA	次のようなコードを考えます。これは、顧客を 10 名検索してそれらの郵便番号を表示しています:
 
 .EN	```ruby
-.EN	clients = Client.all(:limit => 10)
+.EN	clients = Client.all(limit: 10)
 
 .EN	clients.each do |client|
 .EN	  puts client.address.postcode
@@ -919,8 +967,8 @@
 .EN	This code looks fine at the first sight. But the problem lies within the total number of queries executed. The above code executes 1 ( to find 10 clients ) <plus> 10 ( one per each client to load the address ) = **11** queries in total.
 .JA	このコードは、一見問題がなさそうに思えます。しかし実行されるクエリの総数が問題となります。上のコードでは、1 個 ( 顧客 10 名を検索するため ) <plus> 10 個 ( 顧客ごとに住所を読み込むため ) = **11 個**のクエリが実行されます。
 
-.EN	**Solution to N <plus> 1 queries problem**
-.JA	**N <plus> 1 クエリ問題を解決する方法**
+.EN	**Solution to N + 1 queries problem**
+.JA	**N + 1 クエリ問題を解決する方法**
 
 .EN	Active Record lets you specify all the associations in advanced that are going to be loaded. This is possible by specifying the `includes` method of the `Model.find` call. With `includes`, Active Record ensures that all the specified associations are loaded using minimum possible number of queries.
 .JA	Active Record では、読み込まれるであろうアソシエーションを事前にすべて指定できます。これは `Model.find` の呼び出しに `includes` メソッドを指定することで実現できます。Active Record では、すべての指定されたアソシエーションが、最小のクエリ数で読み込まれます。
@@ -951,7 +999,7 @@
 .EN	Active Record lets you eager load any possible number of associations with a single `Model.find` call by using an array, hash, or a nested hash of array/hash with the `includes` method.
 .JA	Active Record では、配列やハッシュやそれらの入れ子を `includes` メソッドに指定することで、ひとつの `Model.find` 呼び出しに対して任意の数のアソシエーションを Eager ローディングで読み込めます。
 
-.EN	#### Array of Multiple Associations 
+.EN	#### Array of Multiple Associations
 .JA	#### 複数のアソシエーションを含む配列
 
 	```ruby
@@ -966,7 +1014,7 @@
 .JA	#### ネストしたアソシエーションのハッシュ
 
 	```ruby
-	Category.find(1).includes(:posts => [{:comments => :guest}, :tags])
+	Category.includes(posts: [{comments: :guest}, :tags]).find(1)
 	```
 
 .EN	The above code finds the category with id 1 and eager loads all the posts associated with the found category. Additionally, it will also eager load every posts' tags and comments. Every comment's guest association will get eager loaded as well.
@@ -1000,10 +1048,9 @@
 .JA	動的ファインダの別の種類として、オブジェクトを検索し、見つからなければ新規作成/初期化を行うというものもあります。これらは、メソッド名が `find_or_create_by_name(params[:name])` のようになる以外は、他のファインダと同じように動作します。
 
 	```sql
-	SELECT * FROM clients WHERE (clients.name = 'Ryan') LIMIT 1
+	SELECT * FROM clients WHERE (clients.first_name = 'Andy') LIMIT 1
 	BEGIN
-	INSERT INTO clients (name, updated_at, created_at, orders_count, locked)
-	  VALUES('Ryan', '2008-09-28 15:39:12', '2008-09-28 15:39:12', 0, '0')
+    NSERT INTO clients (created_at, first_name, locked, orders_count, updated_at) VALUES ('2011-08-30 05:22:57', 'Andy', 1, NULL, '2011-08-30 05:22:57')
 	COMMIT
 	```
 
@@ -1014,8 +1061,8 @@
 	client = Client.find_or_initialize_by_name('Ryan')
 	```
 
-.EN	will either assign an existing client object with the name "Ryan" to the client local variable, or initialize a new object similar to calling `Client.new(:name => 'Ryan')`. From here, you can modify other fields in client by calling the attribute setters on it: `client.locked = true` and when you want to write it to the database just call `save` on it.
-.JA	上の場合だと、名前が "Ryan" である既存の顧客オブジェクトをローカル変数 client に代入するか、〔訳注: そのような顧客が見つからなければ〕 `Client.new(:name => 'Ryan')` を呼び出して新しいオブジェクトを作成し初期化します。ここから、 `client.locked = true` のようにセッターメソッドを使って顧客の他のフィールドを変更できます。またそれをデータベースに保存したいときは `save` メソッドを呼び出します。
+.EN	will either assign an existing client object with the name "Ryan" to the client local variable, or initialize a new object similar to calling `Client.new(name: 'Ryan')`. From here, you can modify other fields in client by calling the attribute setters on it: `client.locked = true` and when you want to write it to the database just call `save` on it.
+.JA	上の場合だと、名前が "Ryan" である既存の顧客オブジェクトをローカル変数 client に代入するか、〔訳注: そのような顧客が見つからなければ〕 `Client.new(name: 'Ryan')` を呼び出して新しいオブジェクトを作成し初期化します。ここから、 `client.locked = true` のようにセッターメソッドを使って顧客の他のフィールドを変更できます。またそれをデータベースに保存したいときは `save` メソッドを呼び出します。
 
 .EN	Finding by SQL
 .EN	--------------
@@ -1026,8 +1073,8 @@
 .JA	`find_by_sql` を使って、テーブル中のレコードを検索するための独自の SQL を指定できます。 `find_by_sql` メソッドは、たとえ 1 つのレコードしか返さないような SQL が指定されたとしても、オブジェクトの配列を返します。たとえば次のようなクエリが実行できます:
 
 	```ruby
-	Client.find_by_sql("SELECT * FROM clients 
-	  INNER JOIN orders ON clients.id = orders.client_id 
+	Client.find_by_sql("SELECT * FROM clients
+	  INNER JOIN orders ON clients.id = orders.client_id
 	  ORDER clients.created_at desc")
 	```
 
@@ -1069,7 +1116,7 @@
 .JA	もっと言うと、 `exists` は find によく似た `conditions` オプションを取ることができます:
 
 	```ruby
-	Client.exists?(:conditions => "first_name = 'Ryan'")
+    Client.where(first_name: 'Ryan').exists?
 	```
 
 .EN	It's even possible to use `exists?` without any arguments:
@@ -1094,21 +1141,23 @@
 .JA	`count` では `exists?` と同じ方法で検索条件を指定できます:
 
 	```ruby
-	Client.count(:conditions => "first_name = 'Ryan'")
+	Client.count
+	# SELECT count(*) AS count_all FROM clients
 	```
 
 .EN	Which will execute:
 .JA	これは次のような SQL を実行します:
 
-	```sql
-	SELECT count(*) AS count_all FROM clients WHERE (first_name = 'Ryan')
+	```ruby
+	Client.where(first_name: 'Ryan').count
+	# SELECT count(*) AS count_all FROM clients WHERE (first_name = 'Ryan')
 	```
 
 .EN	You can also use the `includes` or `joins` methods for this to do something a little more complex:
 .JA	より複雑なことをするのに `includes` メソッドや `joins` メソッドを使うことができます:
 
 	```ruby
-	Client.count.where("clients.first_name = 'Ryan' AND orders.status = 'received'").includes("orders")
+	Client.includes("orders").where(first_name: 'Ryan', orders: {status: 'received'}).count
 	```
 
 .EN	Which will execute:
