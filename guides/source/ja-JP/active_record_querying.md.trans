@@ -3,24 +3,31 @@
 .JA	Active Record クエリインタフェース
 .JA	=====================================
 
-.EN	This guide covers different ways to retrieve data from the database using Active Record. By referring to this guide, you will be able to:
-.JA	本ガイドでは、Active Record を使ってデータベースからデータをとってくるさまざまな方法を説明します。本ガイドを参照することで、以下のことができるようになるでしょう:
+.EN	This guide covers different ways to retrieve data from the database using Active Record.
+.JA	本ガイドでは、Active Record を使ってデータベースからデータをとってくるさまざまな方法を説明します。
 
-.EN	* Find records using a variety of methods and conditions
-.EN	* Specify the order, retrieved attributes, grouping, and other properties of the found records
-.EN	* Use eager loading to reduce the number of database queries needed for data retrieval
-.EN	* Use dynamic finders methods
-.EN	* Check for the existence of particular records
-.EN	* Perform various calculations on Active Record models
-.JA	* いろんなメソッドや条件を使ってレコードを検索する
-.JA	* 検索できたレコードの順番や、抽出するカラムや、グルーピングなどのプロパティを指定する
-.JA	* Eager loading を使うことで、データの抽出に必要なデータベースクエリの数を減らす
-.JA	* 動的finderメソッドを使う
-.JA	* 特定のレコードについて存在するかどうかを調べる
-.JA	* Active Record モデルで様々な計算を実行する
+.EN	After reading this guide, you will know:
+.JA	このガイドを読むことで、以下のようなことがわかるでしょう。:
 
-.EN	If you're used to using raw SQL to find database records then, generally, you will find that there are better ways to carry out the same operations in Rails. Active Record insulates you from the need to use SQL in most cases.
-.JA	もし生のSQLを使ってデータベースレコードを検索しているなら、一般的に言って、Rails では同じことをもっとうまい方法でできることがわかるでしょう。Active Record を使えばほとんどの場合においてSQLを使う必要はありません。
+.EN	* How to find records using a variety of methods and conditions.
+.EN	* How to specify the order, retrieved attributes, grouping, and other properties of the found records.
+.EN	* How to use eager loading to reduce the number of database queries needed for data retrieval.
+.EN	* How to use dynamic finders methods.
+.EN	* How to check for the existence of particular records.
+.EN	* How to perform various calculations on Active Record models.
+.EN	* How to run EXPLAIN on relations.
+.JA	* いろんなメソッドや条件を使ってレコードを検索する方法
+.JA	* 検索できたレコードの順番や、抽出するカラムや、グルーピングなどのプロパティを指定する方法
+.JA	* Eager loading を使うことで、データの抽出に必要なデータベースクエリの数を減らす方法
+.JA	* 動的finderメソッドを使う方法
+.JA	* 特定のレコードについて存在するかどうかを調べる方法
+.JA	* Active Record モデルで様々な計算を実行する方法
+.JA	* 関連で EXPLAIN を走らせる方法
+
+--------------------------------------------------------------------------------
+
+.EN	If you're used to using raw SQL to find database records, then you will generally find that there are better ways to carry out the same operations in Rails. Active Record insulates you from the need to use SQL in most cases.
+.JA	もし生のSQLを使ってデータベースレコードを検索しているなら、Rails で同じことするにはもっと良い方法があるのだと大体わかるでしょう。Active Record を使えばほとんどの場合においてSQLを使う必要はありません。
 
 .EN	Code examples throughout this guide will refer to one or more of the following models:
 .JA	本ガイドに登場するコード例では、次のようなモデルを使います:
@@ -61,8 +68,8 @@
 .EN	------------------------------------
 .JA	h3. デーベースから 1 件取り出す
 
-.EN	To retrieve objects from the database, Active Record provides several finder methods. These methods allows you to pass arguments into it to perform certain queries on your database without the need of writing raw SQL.
-.JA	データベースからオブジェクトを取り出すために、Active Record は検索用メソッドをいくつか用意しています。これらのメソッドに引数を渡すことで、生のSQLを書くことなしに、データベースに対して特定のクエリを実行することができます。
+.EN	To retrieve objects from the database, Active Record provides several finder methods. Each finder method allows you to pass arguments into it to perform certain queries on your database without writing raw SQL.
+.JA	データベースからオブジェクトを取り出すために、Active Record は検索用メソッドをいくつか用意しています。それぞれのファインダメソッドに引数を渡すことで、生のSQLを書くことなしに、データベースに対して特定のクエリを実行することができます。
 
 .EN	The methods are:
 .JA	そのためのメソッドがこちらです:
@@ -90,10 +97,10 @@
 	* `uniq`
 	* `where`
 
-.EN	All of these methods return a Relation
-.JA	これらメソッドはどれも Relation 〔訳注: クラスのオブジェクト〕を返します。
+.EN	All of the above methods return an instance of `ActiveRecord::Relation`.
+.JA	上記のメソッドはどれも `ActiveRecord::Relation` のインスタンスを返します。
 
-.EN	Primary operation of `Model.find(options)` can be summarized as:
+.EN	The primary operation of `Model.find(options)` can be summarized as:
 .JA	`Model.find(options)` の主な操作をまとめると:
 
 .EN	* Convert the supplied options to an equivalent SQL query.
@@ -108,14 +115,14 @@
 .EN	### Retrieving a Single Object
 .JA	### オブジェクトをひとつ取り出す
 
-.EN	Active Record lets you retrieve a single object using three different ways.
-.JA	Active Record は、オブジェクトをひとつ取り出すための異なるメソッドを 3 つ用意しています。
+.EN	Active Record provides five different ways of retrieving a single object.
+.JA	Active Record は、オブジェクトをひとつ取り出す方法を 5 つ用意しています。
 
 .EN	#### Using a Primary Key
 .JA	#### 主キーを使う
 
-.EN	Using `Model.find(primary_key)`, you can retrieve the object corresponding to the supplied _primary key_ and matching the supplied options (if any). For example:
-.JA	`Model.find(primary_key`) を使うことで、 _primary key_ に対応したオブジェクトや (もしあれば) オプションに一致したオブジェクトを取り出せます。たとえば:
+.EN	Using `Model.find(primary_key)`, you can retrieve the object corresponding to the specified _primary key_ that matches any supplied options. For example:
+.JA	`Model.find(primary_key`) を使うことで、 _primary key_ に対応したオブジェクトやオプションに一致したオブジェクトを取り出せます。たとえば:
 
 	```ruby
 .EN	# Find the client with primary key (id) 10.
@@ -124,8 +131,8 @@
 	# => #<Client id: 10, first_name: "Ryan">
 	```
 
-.EN	SQL equivalent of the above is:
-.JA	これと同等の SQl は次の通りです:
+.EN	The SQL equivalent of the above is:
+.JA	これと同等の SQl は:
 
 	```sql
 	SELECT * FROM clients WHERE (clients.id = 10) LIMIT 1
@@ -135,8 +142,10 @@
 .JA	`Model.find(primary_key)` は、もし該当するレコードが見つからなければ、`ActiveRecord::RecordNotFound` 例外を発生させます。
 
 .EN	#### `take`
+.JA	#### `take`
 
 .EN	`Model.take` retrieves a record without any implicit ordering. For example:
+.JA	`Model.take` は、順番を関係なしにひとつのレコードを取り出します。たとえば:
 
 	```ruby
 	client = Client.take
@@ -144,60 +153,65 @@
 	```
 
 .EN	The SQL equivalent of the above is:
+.JA	これと同等の SQL は:
 
 	```sql
 	SELECT * FROM clients LIMIT 1
 	```
 
 .EN	`Model.take` returns `nil` if no record is found and no exception will be raised.
+.JA	`Model.take` は、レコードがひとつも見つけられなくても例外は発生しません。
 
 .EN	TIP: The retrieved record may vary depending on the database engine.
+.JA	TIP: レコードを取り出すことはデータベースエニジンによって動作が変わることがあります。
 
 .EN	#### `first`
 .JA	#### `first`
 
-.EN	`Model.first` finds the first record matched by the supplied options. For example:
-.JA	`Model.first` は指定されたオプションに一致するレコードのうち最初のものを返します。たとえば:
+.EN	`Model.first` finds the first record ordered by the primary key. For example:
+.JA	`Model.first` は、主キーで並べたときの最初のレコードを返します。たとえば:
 
 	```ruby
 	client = Client.first
 	# => #<Client id: 1, first_name: "Lifo">
 	```
 
-.EN	SQL equivalent of the above is:
-.JA	これに対応する SQL は:
+.EN	The SQL equivalent of the above is:
+.JA	これに同等の SQL は:
 
 	```sql
 	SELECT * FROM clients ORDER BY clients.id ASC LIMIT 1
 	```
 
-.EN	`Model.first` returns `nil` if no matching record is found. No exception will be raised.
-.JA	`Model.first` は、もし一致するレコードがなければ nil を返します。例外は発生しません。
+.EN	`Model.first` returns `nil` if no matching record is found and no exception will be raised.
+.JA	`Model.first` は、一致するレコードがなければ nil を返します。例外は発生しません。
 
 .EN	#### `last`
 .JA	#### `last`
 
-.EN	`Model.last` finds the last record matched by the supplied options. For example:
-.JA	`Model.last` は指定されたオプションに一致するレコードのうち最後のものを返します。たとえば:
+.EN	`Model.last` finds the last record ordered by the primary key. For example:
+.JA	`Model.last` は、主キーで並べたときの最後のレコードを返します。たとえば:
 
 	```ruby
 	client = Client.last
 	# => #<Client id: 221, first_name: "Russel">
 	```
 
-.EN	SQL equivalent of the above is:
-.JA	これに対応する SQL は:
+.EN	The SQL equivalent of the above is:
+.JA	これと同等の SQL は:
 
 	```sql
 	SELECT * FROM clients ORDER BY clients.id DESC LIMIT 1
 	```
 
-.EN	`Model.last` returns `nil` if no matching record is found. No exception will be raised.
+.EN	`Model.last` returns `nil` if no matching record is found and no exception will be raised.
 .JA	`Model.last` は、もし一致するレコードがなければ `nil` を返します。例外は発生しません。
 
 .EN	#### `find_by`
+.JA	#### `find_by`
 
 .EN	`Model.find_by` finds the first record matching some conditions. For example:
+.JA	`Model.find_by` は、いくつかの条件に一致する最初のレコードを見つけます。たとえば:
 
 	```ruby
 	Client.find_by first_name: 'Lifo'
@@ -208,14 +222,17 @@
 	```
 
 .EN	It is equivalent to writing:
+.JA	これは以下の書き方と同じです。
 
 	```ruby
 	Client.where(first_name: 'Lifo').take
 	```
 
 .EN	#### `take!`
+.JA	#### `take!`
 
 .EN	`Model.take!` retrieves a record without any implicit ordering. For example:
+.JA	`Model.take!` は、順番を関係なしにひとつのレコードを取り出します。たとえば:
 
 	```ruby
 	client = Client.take!
@@ -223,16 +240,20 @@
 	```
 
 .EN	The SQL equivalent of the above is:
+.JA	これと同等の SQL は:
 
 	```sql
 	SELECT * FROM clients LIMIT 1
 	```
 
 .EN	`Model.take!` raises `ActiveRecord::RecordNotFound` if no matching record is found.
+.JA	`Model.take!` は一致するレコードがなければ、`ActiveRecord::RecordNotFound` が発生します。
 
 .EN	#### `first!`
+.JA	#### `first!`
 
 .EN	`Model.first!` finds the first record ordered by the primary key. For example:
+.JA	`Model.first!` は、主キーで並べたときの最初のレコードを返します。たとえば:
 
 	```ruby
 	client = Client.first!
@@ -240,16 +261,20 @@
 	```
 
 .EN	The SQL equivalent of the above is:
+.JA	これと同等の SQL は:
 
 	```sql
 	SELECT * FROM clients ORDER BY clients.id ASC LIMIT 1
 	```
 
 .EN	`Model.first!` raises `ActiveRecord::RecordNotFound` if no matching record is found.
+.JA	`Model.first!` は一致するレコードがなければ、`ActiveRecord::RecordNotFound` が発生します。
 
 .EN	#### `last!`
+.JA	#### `last!`
 
 .EN	`Model.last!` finds the last record ordered by the primary key. For example:
+.JA	`Model.last!` は、主キーで並べた最後のレコードを返します。たとえば:
 
 	```ruby
 	client = Client.last!
@@ -257,26 +282,31 @@
 	```
 
 .EN	The SQL equivalent of the above is:
+.JA	これと同等の SQL は
 
 	```sql
 	SELECT * FROM clients ORDER BY clients.id DESC LIMIT 1
 	```
 
 .EN	`Model.last!` raises `ActiveRecord::RecordNotFound` if no matching record is found.
+.JA	`Model.last!` は一致するレコードがなければ、`ActiveRecord:RecordNotFound` が発生します。
 
 .EN	#### `find_by!`
+.JA	#### `find_by!`
 
-.EN	Model.find_by!` finds the first record matching some conditions. It raises `ActiveRecord::RecordNotFound` if no matching record is found. For example:
+.EN	`Model.find_by!` finds the first record matching some conditions. It raises `ActiveRecord::RecordNotFound` if no matching record is found. For example:
+.JA	`Model.find_by` 条件に一致する最初のレコードを返します。もし一致するレコードがなければ、`ActiveRecord::RecordNotFound` が発生します。
 
 	```ruby
 	Client.find_by! first_name: 'Lifo'
 	# => #<Client id: 1, first_name: "Lifo">
-	
+
 	Client.find_by! first_name: 'Jon'
 	# => ActiveRecord::RecordNotFound
 	```
 
 .EN	It is equivalent to writing:
+.JA	これはこのように書くのと同じです。
 
 	```ruby
 	Client.where(first_name: 'Lifo').take!
@@ -288,8 +318,8 @@
 .EN	#### Using Multiple Primary Keys
 .JA	#### 複数の主キーを使う
 
-.EN	`Model.find(array_of_primary_key)` also accepts an array of _primary keys_. An array of all the matching records for the supplied _primary keys_ is returned. For example:
-.JA	`Model.find(array_of_primary_key)` は、引数として _primary keys_ の配列を取ることもできます。この場合、指定された _primary keys_ にマッチしたレコードが返されます。たとえば:
+.EN	`Model.find(array_of_primary_key)` accepts an array of _primary keys_, returning an array containing all of the matching records for the supplied _primary keys_. For example:
+.JA	`Model.find(array_of_primary_key)` は、引数として _primary keys_ の配列を取ることができます。この場合、指定された _primary keys_ にマッチしたレコードを含んだ配列を返します。たとえば:
 
 	```ruby
 .EN	# Find the clients with primary keys 1 and 10.
@@ -298,15 +328,68 @@
 	# => [#<Client id: 1, first_name: "Lifo">, #<Client id: 10, first_name: "Ryan">]
 	```
 
-.EN	SQL equivalent of the above is:
+.EN	The SQL equivalent of the above is:
 .JA	これと同等の SQL は:
 
 	```sql
 	SELECT * FROM clients WHERE (clients.id IN (1,10))
 	```
 
-.EN	`Model.find(array_of_primary_key)` will raise an `ActiveRecord::RecordNotFound` exception unless a matching record is found for **all** of the supplied primary keys.
-.JA	`Model.find(array_of_primary_key)` は、指定された主キーにマッチするレコードが**ひとつでも**見つからない場合は、`ActiveRecord::RecordNotFound` 例外を発生させます〔訳注: すべて見つかった場合のみ例外は発生しない〕。
+.EN	WARNING: `Model.find(array_of_primary_key)` will raise an `ActiveRecord::RecordNotFound` exception unless a matching record is found for **all** of the supplied primary keys.
+.JA	WARNING: `Model.find(array_of_primary_key)` は、指定された主キーにマッチするレコードが**ひとつでも**見つからない場合は、`ActiveRecord::RecordNotFound` 例外を発生させます〔訳注: すべて見つかった場合のみ例外は発生しない〕。
+
+	#### take
+
+.EN	`Model.take(limit)` retrieves the first number of records specified by `limit` without any explicit ordering:
+.JA	`Model.take(limit)` は、並び換えを行なわず `limit` に指定した数だけ最初のレコードを返します。:
+
+	```ruby
+	Client.take(2)
+	# => [#<Client id: 1, first_name: "Lifo">,
+	      #<Client id: 2, first_name: "Raf">]
+	```
+
+.EN	The SQL equivalent of the above is:
+.JA	これと同等の SQL は:
+
+	```sql
+	SELECT * FROM clients LIMIT 2
+	```
+
+.EN	#### first
+
+.EN	`Model.first(limit)` finds the first number of records specified by `limit` ordered by primary key:
+.JA	`Model.first(limit)` 主キーによって並び換えをして `limit` に指定した数だけのレコードを返します。
+
+	```ruby
+	Client.first(2)
+	# => [#<Client id: 1, first_name: "Lifo">,
+	      #<Client id: 2, first_name: "Raf">]
+	```
+
+.EN	The SQL equivalent of the above is:
+.JA	これと同等の SQL は:
+
+	```sql
+	SELECT * FROM clients LIMIT 2
+	```
+
+	#### last
+
+.EN	`Model.last(limit)` finds the number of records specified by `limit` ordered by primary key in descending order:
+.JA	`Model.last(limit)` は、主キーの逆順の順番で `limit` に指定された数だけのレコードを返します。
+
+	```ruby
+	Client.last(2)
+	# => [#<Client id: 10, first_name: "Ryan">,
+      #<Client id: 9, first_name: "John">]
+```
+
+.EN	The SQL equivalent of the above is:
+
+	```sql
+	SELECT * FROM clients ORDER By id DESC LIMIT 2
+	```
 
 .EN	### Retrieving Multiple Objects in Batches
 .JA	### 複数のオブジェクトをバッチ方式で取り出す
