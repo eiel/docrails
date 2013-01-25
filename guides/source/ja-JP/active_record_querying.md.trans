@@ -394,25 +394,28 @@
 .EN	### Retrieving Multiple Objects in Batches
 .JA	### 複数のオブジェクトをバッチ方式で取り出す
 
-.EN	Sometimes you need to iterate over a large set of records. For example to send a newsletter to all users, to export some data, etc. 
-.JA	時には、非常にたくさんのレコードに対して繰り返しを行わなければならないことがあります。たとえば、全ユーザに対してニュースレターを送信する場合や、何らかのデータをエクスポート (export) する場合などです。
+.EN	We often need to iterate over a large set of records, as when we send a newsletter to a large set of users, or when we export data.
+.JA	たびたび非常にたくさんのレコードに対して繰り返し行わなければならいことがあります。全ユーザに対してニュースレターを送信する場合や、データをエクスポートする場合です。
 
-.EN	The following may seem very straight forward at first:
-.JA	まず最初に、ごく単純な方法を示します:
+.EN	This may appear straightforward:
+.JA	これは素直な方法だと思うかもしれません:
 
 	```ruby
-.EN	# Very inefficient when users table has thousands of rows.
-.JA	# users テーブルが数千行ある場合はとても効率が悪い
+.EN	# This is very inefficient when the users table has thousands of rows.
+.JA	# users テーブルが数千行ある場合はとても効率が悪いです。
 	User.all.each do |user|
 	  NewsLetter.weekly_deliver(user)
 	end
 	```
 
-.EN	But if the total number of rows in the table is very large, the above approach may vary from being under performant to just plain impossible.
-.JA	しかしテーブル内の行数が非常に多いと、このアプローチではパフォーマンスが悪かったり、最悪だと実行すらできないことがあります。
+.EN	But this approach becomes increasingly impractical as the table size increases, since `User.all.each` instructs Active Record to fetch _the entire table_ in a single pass, build a model object per row, and then keep the entire array of model objects in memory. Indeed, if we have a large number of records, the entire collection may exceed the amount of memory available.
+.JA	この方法はテーブルのサイズが増加していくと、次第に実用的ではなくなります。`User.all.each` は一度に__テーブル全体__を取得するように ActiveRecord へ指示するので、行の数だけモデルオブジェクが構築されてしまい、メモリ上にすべてのモデルオブジェクト配列が保存されます。非常にたくさんのレコードがあれば、実際にはコレクション全体の大きさは利用可能なメモリを越えてしまうかもしれません。
 
-.EN	This is because `User.each` makes Active Record fetch _the entire table_, build a model object per row, and keep the entire array in the memory. Sometimes that is just too many objects and demands too much memory.
-.JA	これは、`User.each` が _テーブル全体_ に対して Active Record によるフェッチを行い、行ごとのモデルオブジェクトを作成し、それらをすべてメモリ上の配列に格納してしまうことが原因です。時にはこの方法はあまりに多くのオブジェクトを作成してしまうため、一度にあまりに多くのメモリを消費することになります。
+.EN	Rails provides two methods that address this problem by dividing records into memory-friendly batches for processing. The first method, `find_each`, retrieves a batch of records and then yields _each_ record to the block individually as a model. The second method, `find_in_batches`, retrieves a batch of records and then yields _the entire batch_ to the block as an array of models.
+.JA	Rails は、この問題を解決するのにレコードを分けて、メモリに優しくなるような処理単位にするメソッドを二つ用意しています。ひとつめは `find_each`で、レコードのまとまりを取り出し、そして、ひとつのモデルを個別にブロックへを渡します。ふたつめは `find_in_batches` で、_バッチ全体_を一つのモデルの配列にしてブロックヘ渡します。
+
+.EN	TIP: The `find_each` and `find_in_batches` methods are intended for use in the batch processing of a large number of records that wouldn't fit in memory all at once. If you just need to loop over a thousand records the regular find methods are the preferred option.
+.JA	TIP: `find_each` と `find_in_batches` メソッドはは、一度にメモリに収まりきれない非常にたくさんのレコードを一括処理させる目的があります。もし望むオプションでファインドメソッドを利用して、幾千ものレコードがあるときにループするのに良いです。
 
 .EN	#### `find_each`
 .JA	#### `find_each`
