@@ -420,8 +420,8 @@
 .EN	#### `find_each`
 .JA	#### `find_each`
 
-.EN	To efficiently iterate over a large table, Active Record provides a batch finder method called `find_each`:
-.JA	巨大なテーブル全体に対して効率的に繰り返しを行うために、Active Record はバッチ形式の検索用メソッドである `find_each` を提供しています:
+.EN	The `find_each` method retrieves a batch of records and then yields _each_ record to the block individually as a model. In the following example, `find_each` will retrieve 1000 records (the current default for both `find_each` and `find_in_batches`) and then yield each record individually to the block as a model. This process is repeated until all of the records have been processed:
+.JA	`find_each` メソッドはレコードのまとまりを取り出して、個々のモデルに対しブロックをひとつひとつ呼び出します。以下の例は、`find~each` は1000 レコード(`find~each`と`find_in_batches`ともに現在デフォルトになっている) 取り出します。 そして 個々のモデルに対しブロックをひとつひとつ呼び出します。. この処理はすべてのレコードを処理し終えるまで繰りかえされます。
 
 	```ruby
 	User.find_each do |user|
@@ -429,14 +429,19 @@
 	end
 	```
 
-.EN	*Configuring the batch size*
-.JA	*バッチサイズを設定する*
+.EN	##### Options for `find_each`
+.JA	##### `find_each` のオプション
 
-.EN	Behind the scenes `find_each` fetches rows in batches of `1000` and yields them one by one. The size of the underlying batches is configurable via the `:batch_size` option.
-.JA	`find_each` の裏側では、1 回のバッチで `1000` 行がフェッチされてから 1 行ずつ yield が実行されます。この、裏側で行われているバッチのサイズを変更するには、`:batch_size` オプションを指定します。
+.EN	The `find_each` method accepts most of the options allowed by the regular `find` method, except for `:order` and `:limit`, which are reserved for internal use by `find_each`.
+.JA	`find_each` メソッドは なじみの `find`メソッドで利用できるいろいろなオプションが利用できます。`:order` と `:limit` は例外で、`find_each` の内部で予約されています。
 
-.EN	To fetch `User` records in batch size of `5000`:
-.JA	バッチサイズ `5000` で `User` のレコードを取ってくるには:
+.EN	Two additional options, `:batch_size` and `:start`, are available as well.
+.JA	ふたつの追加オプションがあり、 `:batch_size`と `:start` が利用できます。
+
+	**`:batch_size`**
+
+.EN	The `:batch_size` option allows you to specify the number of records to be retrieved in each batch, before being passed individually to the block. For example, to retrieve records in batches of 5000:
+.JA	`:batch_size` オブションは取り出すレコードの数を指定するのに利用できます。例では 一度に 5000 レコード取り出しています。
 
 	```ruby
 	User.find_each(batch_size: 5000) do |user|
@@ -444,14 +449,13 @@
 	end
 	```
 
-.EN	*Starting batch find from a specific primary key*
-.JA	*バッチによる検索を開始するときの主キーを指定する*
+	**`:start`**
 
-.EN	Records are fetched in ascending order on the primary key, which must be an integer. The `:start` option allows you to configure the first ID of the sequence if the lowest is not the one you need. This may be useful for example to be able to resume an interrupted batch process if it saves the last processed ID as a checkpoint.
-.JA	レコードは主キーの昇順でフェッチされます。主キーは整数でなければなりません。番号の小さいものは必要としない場合、 `:start` オプションを使えば、取り出すべき一連のレコードにおける最初の ID を設定できます。これは、たとえばバッチ処理が中断された場合に、最後に処理したレコードの ID をチェックポイントとして保存しておき、あとでその ID から処理を再開するような場合に役に立ちます。
+.EN	By default, records are fetched in ascending order of the primary key, which must be an integer. The `:start` option allows you to configure the first ID of the sequence whenever the lowest ID is not the one you need. This would be useful, for example, if you wanted to resume an interrupted batch process, provided you saved the last processed ID as a checkpoint.
+.JA	デフォルトでは、レコードは主キーの昇順でフェッチされます。主キーは整数でなければなりません。番号の小さいものは必要としない場合、 `:start` オプションを使えば、取り出すべき一連のレコードにおける最初の ID を設定できます。これは、たとえばバッチ処理が中断された場合に、最後に処理したレコードの ID をチェックポイントとして保存しておき、あとでその ID から処理を再開するような場合に役に立ちます。
 
-.EN	To send newsletters only to users with the primary key starting from `2000`:
-.JA	主キーが `2000` 以降のユーザにだけニュースレターを送信する場合は:
+.EN	For example, to send newsletters only to users with the primary key starting from 2000, and to retrieve them in batches of 5000:
+.JA	例えば、主キーが `2000` 以降のユーザにだけニュースレターを送信する場合は:
 
 	```ruby
 	User.find_each(start: 2000, batch_size: 5000) do |user|
@@ -459,36 +463,39 @@
 	end
 	```
 
-.EN	*Additional options*
-.JA	*追加できるオプション*
-
-.EN	`find_each` accepts the same options as the regular `find` method. However, `:order` and `:limit` are needed internally and hence not allowed to be passed explicitly.
-.JA	`find_each` は通常の `find` メソッドと同じオプションが利用できます。ただし `:order` と `:limit` は内部的に使用されるため、これらを `find_each` で明示的に指定することはできません。
+.EN	Another example would be if you wanted multiple workers handling the same processing queue. You could have each worker handle 10000 records by setting the appropriate `:start` option on each worker.
+.JA	別の例として、同じプロセスキューで複数のワーカで処理したいとします。それそれのワーカに `:start`オプションを適切に設定することでそれぞれのワーか 10000 レコード処理できます。(訳注:10000という数値はどこかかきたのだろう)
 
 .EN	#### `find_in_batches`
 .JA	#### `find_in_batches`
 
-.EN	You can also work by chunks instead of row by row using `find_in_batches`. This method is analogous to `find_each`, but it yields arrays of models instead:
-.JA	1 行ずつ処理を行うかわりに、`find_in_batches` を使うことでチャンク〔訳注: データの固まりのこと。ここでは配列を意味する〕ごとに処理を行うこともできます。このメソッドは `find_each` に似てますが、〔訳注: モデルのかわりに〕モデルの配列を受け取って yield します:
+.EN	The `find_in_batches` method is similar to `find_each`, since both retrieve batches of records. The difference is that `find_in_batches` yields _batches_ to the block as an array of models, instead of individually. The following example will yield to the supplied block an array of up to 1000 invoices at a time, with the final block containing any remaining invoices:
+.JA	`find_in_batches` メソッドは `find_eahc` に似ていて、 両方ともレコードの固まりを取り出します。違いは `finde_in_batche` _固まり_をモデルの配列としてブロックに渡します。次の例は 1000のインボイスの配列がブロックに提供されて呼び出され、最後のブロックには残りのインボイスが渡されます。
 
 	```ruby
-.EN	# Works in chunks of 1000 invoices at a time.
-.JA	# 1 回につき 1000 件のインボイスを含むチャンクを処理する
+.EN	# Give add_invoices an array of 1000 invoices at a time
+.JA	# add_invoicesには 1度に 1000件のインボイスの配列が与えられます
 	Invoice.find_in_batches(include: :invoice_lines) do |invoices|
 	  export.add_invoices(invoices)
 	end
 	```
 
-.EN	The above will yield the supplied block with `1000` invoices every time.
-.JA	上のコードは毎回 1000 個のインボイスを使って、指定されたブロックを yield します。
+.EN	NOTE: The `:include` option allows you to name associations that should be loaded alongside with the models.
+.JA	NOTE: `:include` オプションは一緒に読みこむべきモデルの関連名を指定します。
+
+.EN	##### Options for `find_in_batches`
+.JA	##### `find_in_batechs` のオプション
+
+.EN	The `find_in_batches` method accepts the same `:batch_size` and `:start` options as `find_each`, as well as most of the options allowed by the regular `find` method, except for `:order` and `:limit`, which are reserved for internal use by `find_in_batches`.
+.JA	`find_in_batches` メソッドは `find_each` のオプションと同じ `:batch_size` と `:start`を指定できます。同様に 一般的な `find`メソッドのほとんどのオプションが指定できますが、`:order` と `:limit`は例外で、`find in_batches` の内部でしようするために予約されています。
 
 .EN	Conditions
 .EN	----------
 .JA	検索条件
 .JA	--------
 
-.EN	The `find` method allows you to specify conditions to limit the records returned, representing the `WHERE`-part of the SQL statement. Conditions can either be specified as a string, array, or hash.
-.JA	find メソッドでは、返されるレコードを限定するための検索条件を指定できます。これは SQL 文でいうところの WHERE 句で表されます。条件は文字列や配列やハッシュで指定できます。
+.EN	The `where` method allows you to specify conditions to limit the records returned, representing the `WHERE`-part of the SQL statement. Conditions can either be specified as a string, array, or hash.
+.JA	`where` メソッドでは、返されるレコードを限定するための検索条件を指定できます。これは SQL 文でいうところの WHERE 句で表されます。条件は文字列や配列やハッシュで指定できます。
 
 .EN	### Pure String Conditions
 .JA	### 文字列だけを使った検索条件
@@ -496,8 +503,8 @@
 .EN	If you'd like to add conditions to your find, you could just specify them in there, just like `Client.where("orders_count = '2'")`. This will find all clients where the `orders_count` field's value is 2.
 .JA	もし find に検索条件を追加するなら、それをたとえば `Client.where("orders_count = '2'")` のようにその場で指定でき、この場合なら `orders_count` フィールドの値が 2 であるようなクライアントをすべて検索します。
 
-.EN	WARNING: Building your own conditions as pure strings can leave you vulnerable to SQL injection exploits. For example, `Client.where("name LIKE '%#{params[:name]}%'")` is not safe. See the next section for the preferred way to handle conditions using an array.
-.JA	警告: 条件を文字列だけで組み立てるのは、SQL インジェクションの脆弱性を残してしまう危険性が高いです。たとえば `Client.where("name LIKE '%#{params[:name]}%'")` は安全ではありません。次のセクションで、配列を使って検索条件を構築するという、より好ましい方法を説明します。
+.EN	WARNING: Building your own conditions as pure strings can leave you vulnerable to SQL injection exploits. For example, `Client.where("first_name LIKE '%#{params[:first_name]}%'")` is not safe. See the next section for the preferred way to handle conditions using an array.
+.JA	警告: 条件を文字列だけで組み立てるのは、SQL インジェクションの脆弱性を残してしまう危険性が高いです。たとえば `Client.where("first_name LIKE '%#{params[:first_name]}%'")` は安全ではありません。次のセクションで、配列を使って検索条件を構築するという、より好ましい方法を説明します。
 
 .EN	### Array Conditions
 .JA	### 配列を使った検索条件
