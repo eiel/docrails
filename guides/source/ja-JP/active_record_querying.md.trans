@@ -1160,6 +1160,7 @@ SELECT * FROM posts WHERE id = 10 ORDER BY posted_at DESC
 	SELECT categories.* FROM categories
 	  INNER JOIN posts ON posts.category_id = categories.id
 	```
+.EN	Or, in English: "return all posts that have a category and at least one comment". Note again that posts with multiple comments will show up multiple times.
 
 .EN	#### Joining Multiple Associations
 .JA	#### 複数のアソシエーションによるジョイン
@@ -1190,6 +1191,14 @@ SELECT * FROM posts WHERE id = 10 ORDER BY posted_at DESC
 	```ruby
 	Category.joins(posts: [{comments: :guest}, :tags])
 	```
+
+	```sql
+	SELECT posts.* FROM posts
+	  INNER JOIN comments ON comments.post_id = posts.id
+	  INNER JOIN guests ON guests.comment_id = comments.id
+	```
+
+.EN	Or, in English: "return all posts that have a comment made by a guest."
 
 .EN	### Specifying Conditions on the Joined Tables
 .JA	### ジョイン用テーブルを使った条件の指定
@@ -1227,13 +1236,13 @@ SELECT * FROM posts WHERE id = 10 ORDER BY posted_at DESC
 .EN	Consider the following code, which finds 10 clients and prints their postcodes:
 .JA	次のようなコードを考えます。これは、顧客を 10 名検索してそれらの郵便番号を表示しています:
 
-.EN	```ruby
-.EN	clients = Client.all(limit: 10)
+	```ruby
+	clients = Client.limit(10)
 
-.EN	clients.each do |client|
-.EN	  puts client.address.postcode
-.EN	end
-.EN	```
+	clients.each do |client|
+	  puts client.address.postcode
+	end
+	```
 
 .EN	This code looks fine at the first sight. But the problem lies within the total number of queries executed. The above code executes 1 ( to find 10 clients ) <plus> 10 ( one per each client to load the address ) = **11** queries in total.
 .JA	このコードは、一見問題がなさそうに思えます。しかし実行されるクエリの総数が問題となります。上のコードでは、1 個 ( 顧客 10 名を検索するため ) <plus> 10 個 ( 顧客ごとに住所を読み込むため ) = **11 個**のクエリが実行されます。
@@ -1296,6 +1305,202 @@ SELECT * FROM posts WHERE id = 10 ORDER BY posted_at DESC
 
 .EN	Even though Active Record lets you specify conditions on the eager loaded associations just like `joins`, the recommended way is to use "joins":#joining-tables instead. 
 .JA	Active Record は Eager ローディングで読み込まれたアソシエーションに対しても、ちょうど `joins` のときのように条件指定を行うことができますが、素直に "joins":#joining-tables メソッドを使うほうをお勧めします。
+
+.EN	However if you must do this, you may use `where` as you would normally.
+
+	```ruby
+	Post.includes(:comments).where("comments.visible" => true)
+	```
+
+	This would generate a query which contains a `LEFT OUTER JOIN` whereas the `joins` method would generate one using the `INNER JOIN` function instead.
+
+	```ruby
+	  SELECT "posts"."id" AS t0_r0, ... "comments"."updated_at" AS t1_r5 FROM "posts" LEFT OUTER JOIN "comments" ON "comments"."post_id" = "posts"."id" WHERE (comments.visible = 1)
+	```
+
+.EN	If there was no `where` condition, this would generate the normal set of two queries.
+
+.EN	If, in the case of this `includes` query, there were no comments for any posts, all the posts would still be loaded. By using `joins` (an INNER JOIN), the join conditions **must** match, otherwise no records will be returned.
+
+.EN	Scopes
+.EN	------
+
+.EN	Scoping allows you to specify commonly-used queries which can be referenced as method calls on the association objects or models. With these scopes, you can use every method previously covered such as `where`, `joins` and `includes`. All scope methods will return an `ActiveRecord::Relation` object which will allow for further methods (such as other scopes) to be called on it.
+
+.EN	To define a simple scope, we use the `scope` method inside the class, passing the query that we'd like to run when this scope is called:
+
+	```ruby
+	class Post < ActiveRecord::Base
+	  scope :published, -> { where(published: true) }
+	end
+	```
+
+.EN	This is exactly the same as defining a class method, and which you use is a matter of personal preference:
+
+	```ruby
+	class Post < ActiveRecord::Base
+	  def self.published+    where(published: true)
+	  end
+	end
+	```
+
+.EN	Scopes are also chainable within scopes:
+
+	```ruby
+	class Post < ActiveRecord::Base+  scope :published,               -> { where(published: true) }
+	  scope :published_and_commented, -> { published.where("comments_count > 0") }
++end
+	```
+
+.EN	To call this `published` scope we can call it on either the class:
+
+	```ruby
+	Post.published # => [published posts]
+	```
+
+	Or on an association consisting of `Post` objects:
+
+	```ruby
+	ategory = Category.first
+	category.posts.published # => [published posts belonging to this category]
+	```
+
+.EN	### Passing in arguments
+
+.EN	Your scope can take arguments:
+
+	```ruby
+	class Post < ActiveRecord::Base
+	  scope :created_before, ->(time) { where("created_at < ?", time) }
+	end
+	```
+
+	This may then be called using this:
+
+	```ruby
+	Post.created_before(Time.zone.now)
+	```
+
+.EN	However, this is just duplicating the functionality that would be provided to you by a class method.
+
+	```ruby
+	class Post < ActiveRecord::Base
+	  def self.created_before(time)
+	    where("created_at < ?", time)
+	  end
+	end
+	```
+
+	Using a class method is the preferred way to accept arguments for scopes. These methods will still be accessible on the association objects:
+
+	```ruby
+	category.posts.created_before(time)
+	```
+
+.EN	### Merging of scopes
+
+.EN	Just like `where` clauses scopes are merged using `AND` conditions.
+
+	```ruby
+	class User < ActiveRecord::Base
+	  scope :active, -> { where state: 'active' }
+	  scope :inactive, -> { where state: 'inactive' }
+	end
+
+	```ruby
+	User.active.inactive
+	# => SELECT "users".* FROM "users" WHERE "users"."state" = 'active' AND "users"."state" = 'inactive'
+	```
+
+	We can mix and match `scope` and `where` conditions and the final sql
+	will have all conditions joined with `AND` .
+
+	```ruby
+	User.active.where(state: 'finished')
+	# => SELECT "users".* FROM "users" WHERE "users"."state" = 'active' AND "users"."state" = 'finished'
+	```
++
+.EN	If we do want the `last where clause` to win then `Relation#merge` can
+.EN	be used .
+
+	```ruby
+	User.active.merge(User.inactive)
+	# => SELECT "users".* FROM "users" WHERE "users"."state" = 'inactive'
+	```
+
+.EN	One important caveat is that `default_scope` will be overridden by
+.EN	`scope` and `where` conditions.
+
+	```ruby
+	class User < ActiveRecord::Base
+	  default_scope  { where state: 'pending' }
+	  scope :active, -> { where state: 'active' }
+	  scope :inactive, -> { where state: 'inactive' }
+	end
+
+	User.all
+	# => SELECT "users".* FROM "users" WHERE "users"."state" = 'pending'
+
+	User.active
+	# => SELECT "users".* FROM "users" WHERE "users"."state" = 'active'
+
+	User.where(state: 'inactive')
+	# => SELECT "users".* FROM "users" WHERE "users"."state" = 'inactive'
+	```
+
+.EN	As you can see above the `default_scope` is being overridden by both
+.EN	`scope` and `where` conditions.
+
+
+.EN	### Applying a default scope
+
+	If we wish for a scope to be applied across all queries to the model we can use the
+.EN	`default_scope` method within the model itself.
+
+	```ruby
+	class Client < ActiveRecord::Base
+	  default_scope { where("removed_at IS NULL") }
+	end
+	```
+
+.EN	When queries are executed on this model, the SQL query will now look something like
+.EN	this:
+
+	```sql
+	SELECT * FROM clients WHERE removed_at IS NULL
+	```
+
+	If you need to do more complex things with a default scope, you can alternatively
+	define it as a class method:
+
+	```ruby
+	class Client < ActiveRecord::Base
+	  def self.default_scope
+	    # Should return an ActiveRecord::Relation.
+	  end
+	end
+	```
+
+.EN	### Removing All Scoping
+
+.EN	If we wish to remove scoping for any reason we can use the `unscoped` method. This is
+.EN	especially useful if a `default_scope` is specified in the model and should not be
+.EN	applied for this particular query.
+
+	```ruby
+	Client.unscoped.all
+	```
+
+.EN	This method removes all scoping and will do a normal query on the table.
+
+.EN	Note that chaining `unscoped` with a `scope` does not work. In these cases, it is
+.EN	recommended that you use the block form of `unscoped`:
+
+	```ruby
+	Client.unscoped {
+	  Client.created_before(Time.zone.now)
+	}
+	```
 
 .EN	Dynamic Finders
 .EN	---------------
@@ -1362,6 +1567,61 @@ SELECT * FROM posts WHERE id = 10 ORDER BY posted_at DESC
 	Client.connection.select_all("SELECT * FROM clients WHERE id = '1'")
 	```
 
+.EN	### `pluck`
+
+.EN	`pluck` can be used to query a single or multiple columns from the underlying table of a model. It accepts a list of column names as argument and returns an array of values of the specified columns with the corresponding data type.
+
+	```ruby
+	Client.where(active: true).pluck(:id)
+	# SELECT id FROM clients WHERE active = 1
+	# => [1, 2, 3]
+
+	Client.uniq.pluck(:role)
+	# SELECT DISTINCT role FROM clients
+	# => ['admin', 'member', 'guest']
+
+	Client.pluck(:id, :name)
+	# SELECT clients.id, clients.name FROM clients
+	# => [[1, 'David'], [2, 'Jeremy'], [3, 'Jose']]
+	```
+
+.EN	`pluck` makes it possible to replace code like
+
+	```ruby
+	Client.select(:id).map { |c| c.id }
+	# or
+	Client.select(:id).map(&:id)
+	# or
+	Client.select(:id, :name).map { |c| [c.id, c.name] }
+	```
+
+.EN	with
+
+	```ruby
+	Client.pluck(:id)
+	# or
+	Client.pluck(:id, :name)
+	```
+
+.EN	### `ids`
+
+.EN	`ids` can be used to pluck all the IDs for the relation using the table's primary key.
+
+	```ruby
+	Person.ids
+	# SELECT id FROM people
+	```
+
+	```ruby
+	class Person < ActiveRecord::Base
+	  self.primary_key = "person_id"
+	end
+
+	Person.ids
+	# SELECT person_id FROM people
+	# SELECT person_id FROM people
+	```
+
 .EN	Existence of Objects
 .EN	--------------------
 .JA	オブジェクトの存在確認
@@ -1399,6 +1659,26 @@ SELECT * FROM posts WHERE id = 10 ORDER BY posted_at DESC
 
 .EN	The above returns `false` if the `clients` table is empty and `true` otherwise.
 .JA	この場合、 `clients` テーブルが空なら `false` が返され、そうでなければ `true` が返されます。
+
+.EN	You can also use `any?` and `many?` to check for existence on a model or relation.
+
+	```ruby
+.EN	# via a model
+	Post.any?
+	Post.many?
+
+.EN	# via a named scope
+	Post.recent.any?
+	Post.recent.many?
+
+.EN	# via a relation
+	Post.where(published: true).any?
+	Post.where(published: true).many?
+
+.EN	# via an association
+	Post.first.categories.any?
+	Post.first.categories.many?
+	```
 
 .EN	Calculations
 .EN	------------
