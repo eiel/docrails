@@ -967,32 +967,27 @@ SELECT * FROM posts WHERE id = 10 ORDER BY posted_at DESC
 .JA	読み取り専用オブジェクト
 .JA	--------------------------
 
-.EN	To explicitly disallow modification/destruction of the matching records returned in a Relation object, you could chain the `readonly` method as `true` to the find call.
-.JA	リレーションによって返されたレコードが変更されたり破壊されるのを明示的に防ぐには、 `readonly` メソッドに `true` を指定しておいてから、find の呼び出しを繋げます。
-
-.EN	Any attempt to alter or destroy the readonly records will not succeed, raising an `ActiveRecord::ReadOnlyRecord` exception. To set this option, specify it like this:
-.JA	読取専用レコードに対して変更や削除を行うことはできず、例外 `ActiveRecord::ReadOnlyRecord` が発生します。このオプションを指定するには、次のようにしてください:
+.EN	Active Record provides `readonly` method on a relation to explicitly disallow modification of any of the returned objects. Any attempt to alter a readonly record will not succeed, raising an `ActiveRecord::ReadOnlyRecord` exception.
+.JA	ActiveRecord は取り出したオブジェクトに対し、明示的に変更を防ぐのに`readonly` メソッドを用意しています。変更しようする操作は読み込み専用のレコード成功せず、 例外 `ActiveRecord::ReadOnlyRecord`が発生します。
 
 	```ruby
-	Client.first.readonly(true)
-	```
-
-.EN	If you assign this record to a variable client, calling the following code will raise an `ActiveRecord::ReadOnlyRecord` exception:
-.JA	もしこのレコードを変数 client に代入して、次のようなコードを実行すると、 `ActiveRecord::ReadOnlyRecord` 例外が発生します:
-
-	```ruby
-	client = Client.first.readonly(true)
-	client.locked = false
+	client = Client.readonly.first
+	client.visits += 1
 	client.save
 	```
+
+.EN	As `client` is explicitly set to be a readonly object, the above code will raise an `ActiveRecord::ReadOnlyRecord` exception when calling `client.save` with an updated value of _visits_.
 
 .EN	Locking Records for Update
 .EN	--------------------------
 .JA	更新用にレコードをロックする
 .JA	------------------------------
 
-.EN	Locking is helpful for preventing the race conditions when updating records in the database and ensuring atomic updated. Active Record provides two locking mechanism:
-.JA	ロックは、データベース中のレコードを更新するときに競合条件 (Race condition) を避けるのに役立ちます。また更新をアトミックに行うことも保証してくれます。 Active Record は 2 種類のロックメカニズムを提供しています:
+.EN	Locking is helpful for preventing race conditions when updating records in the database and ensuring atomic updates.
+.JA	ロックは、データベース中のレコードを更新するときに競合条件 (Race condition) を避けるのに役立ちます。また更新をアトミックに行うことも保証してくれます。 
+
+.EN	Active Record provides two locking mechanisms:
+.JA	ActiveRecord は 2 種類のロックメカニズムを提供しています:
 
 .EN	* Optimistic Locking
 .EN	* Pessimistic Locking
@@ -1002,14 +997,14 @@ SELECT * FROM posts WHERE id = 10 ORDER BY posted_at DESC
 .EN	### Optimistic Locking
 .JA	### 楽観的ロック
 
-.EN	Optimistic locking allows multiple users to access the same record for edits, and assumes a minimum of conflicts with the data.  It does this by checking whether another process has made changes to a record since it was opened. An `ActiveRecord::StaleObjectError` exception is thrown if that has occurred and the update is ignored.
+.EN	Optimistic locking allows multiple users to access the same record for edits, and assumes a minimum of conflicts with the data. It does this by checking whether another process has made changes to a record since it was opened. An `ActiveRecord::StaleObjectError` exception is thrown if that has occurred and the update is ignored.
 .JA	楽観的ロックは、複数のユーザが同じレコードに更新のためにアクセスする場合において、データの衝突 (conflict) があまりないことを仮定した方法です。この方法では、対象レコードを取り出して以降、〔訳注: 更新する際に〕他のプロセスがそのレコードに対して変更を行ったかどうかをチェックします。もし〔訳注: 他プロセスによる変更が〕行われていた場合は `ActiveRecord::StaleObjectError` が発生し、更新は行われません。
 
 .EN	**Optimistic locking column**
 .JA	**楽観的ロック用のカラム**
 
-.EN	In order to use optimistic locking, the table needs to have a column called `lock_version`. Each time the record is updated, Active Record increments the `lock_version` column and the locking facilities ensure that records instantiated twice will let the last one saved raise an `ActiveRecord::StaleObjectError` exception if the first was also updated. Example:
-.JA	楽観的ロッックを使用する場合、 `lock_version` という名前のカラムがテーブルに必要です。レコードが更新されるたびに、Active Record は `lock_version` カラムの値を 1 増やします。こうすることでロック機構は、同じレコードが 2 度インスタンス化されてかつ最初のほうが更新された場合、2 つめのほうがセーブされたときに `ActiveRecord::StaleObjectError` 例外を必ず発生させます。
+.EN	In order to use optimistic locking, the table needs to have a column called `lock_version` of type integer. Each time the record is updated, Active Record increments the `lock_version` column. If an update request is made with a lower value in the `lock_version` field than is currently in the `lock_version` column in the database, the update request will fail with an `ActiveRecord::StaleObjectError`. Example:
+.JA	楽観的ロッックを使用する場合、 `lock_version` という名前の integer型カラムがテーブルに必要です。レコードが更新されるたびに、Active Record は `lock_version` カラムの値を 1 増やします。もし更新リクエストの `lock_versio` フィールドの値がデータベース内の現在の `lock_version` コラムの値より低い値であれば、更新リクエスト`ActiveRecord::StaleObjectError`例外を発生させて失敗するでしょう。例えば:
 
 	```ruby
 	c1 = Client.find(1)
@@ -1029,8 +1024,8 @@ SELECT * FROM posts WHERE id = 10 ORDER BY posted_at DESC
 .EN	This behavior can be turned off by setting `ActiveRecord::Base.lock_optimistically = false`.
 .JA	この挙動は `ActiveRecord::Base.lock_optimistically = false` によってオフにすることができます。
 
-.EN	To override the name of the `lock_version` column, `ActiveRecord::Base` provides a class method called `set_locking_column`:
-.JA	`lock_version` カラムの名前を変更するために、`ActiveRecord::Base` は `set_locking_column` というメソッドを用意しています:
+.EN	To override the name of the `lock_version` column, `ActiveRecord::Base` provides a class attribute called `locking_column`:
+.JA	`lock_version` カラムの名前を変更するために、`ActiveRecord::Base` は `locking_column` という属性を用意しています:
 
 	```ruby
 	class Client < ActiveRecord::Base
@@ -1041,15 +1036,15 @@ SELECT * FROM posts WHERE id = 10 ORDER BY posted_at DESC
 .EN	### Pessimistic Locking
 .JA	### 悲観的ロック
 
-.EN	Pessimistic locking uses locking mechanism provided by the underlying database. Passing `lock: true` to `Model.find` obtains an exclusive lock on the selected rows. `Model.find` using `:lock` are usually wrapped inside a transaction for preventing deadlock conditions.
-.JA	悲観的ロックは、データベースが持っている機能を使ったロックメカニズムです。 `Model.find` を `lock: true` に渡すことで、選択された行に排他的ロックをかけることができます。 `:lock` つきの `Model.find` は通常、デッドロック条件を防ぐためにトランザクション内で使用されます。
+.EN	Pessimistic locking uses a locking mechanism provided by the underlying database. Using `lock` when building a relation obtains an exclusive lock on the selected rows. Relations using `lock` are usually wrapped inside a transaction for preventing deadlock conditions.
+.JA	悲観的ロックは、データベースが持っている機能を使ったロックメカニズムです。リレーションを構築する際に `lock` を使用することで選択された行に排他的ロックをかけることができます。`lock`を使用したリレーションは通常、デッドロック条件を防ぐためにトランザクション内で使用されます。
 
 .EN	For example:
 .JA	たとえば:
 
 	```ruby
 	Item.transaction do
-	  ji = Item.lock.first
+	  i = Item.lock.first
 	  i.name = 'Jones'
 	  i.save
 	end
@@ -1065,13 +1060,24 @@ SELECT * FROM posts WHERE id = 10 ORDER BY posted_at DESC
 	SQL (0.8ms)   COMMIT
 	```
 
-.EN	You can also pass raw SQL to the `:lock` option to allow different types of locks. For example, MySQL has an expression called `LOCK IN SHARE MODE` where you can lock a record but still allow other queries to read it. To specify this expression just pass it in as the lock option:
-.JA	また `:lock` オプションには生の SQL を渡すことで別の種類のロックを使うこともできます。たとえば MySQL には `LOCK IN SHARE MODE` という式があり、これはレコードにロックをかけるけど他のユーザがクエリで読み取ることは許すというものです。この式を指定するには、lock オプションにその式をそのまま渡します:
+.EN	You can also pass raw SQL to the `lock` method for allowing different types of locks. For example, MySQL has an expression called `LOCK IN SHARE MODE` where you can lock a record but still allow other queries to read it. To specify this expression just pass it in as the lock option:
+.JA	また `lock` メソッドには生の SQL を渡すことで別の種類のロックを使うこともできます。たとえば MySQL には `LOCK IN SHARE MODE` という式があり、これはレコードにロックをかけるけど他のユーザがクエリで読み取ることは許すというものです。この式を指定するには、lock オプションにその式をそのまま渡します:
 
 	```ruby
 	Item.transaction do
-      i = Item.lock("LOCK IN SHARE MODE").find(1)
+	  i = Item.lock("LOCK IN SHARE MODE").find(1)
 	  i.increment!(:views)
+	end
+	```
+
+.EN	If you already have an instance of your model, you can start a transaction and acquire the lock in one go using the following code:
+
+	```ruby
+	item = Item.first
+	item.with_lock do
+	  # This block is called within a transaction,
+	  # item is already locked.
+	  item.increment!(:views)
 	end
 	```
 
